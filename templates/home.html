@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+   {% block content %}
+      <main class="container signup-section">
+         <div class="section-content">
+            <h2>Fill this out and then click generate</h2>
+
+            <form method="POST" action="/home">
+            	{{ form.hidden_tag() }}
+
+            {% for subfield in form %}
+               {% if not subfield.type == 'HiddenField' and not subfield.type == 'CSRFTokenField' and not subfield.type == 'SubmitField' %}
+            	   <div class="form-group">
+            	   {{ subfield.label }}
+            	   {% if subfield.errors %}
+            			    {% for error in subfield.errors %}
+            				     <p class="error-message">{{ error }}</p>
+            		       {% endfor %}
+            	   {% endif %}
+         		   {{ subfield }}
+         	     </div>
+               {% endif %}
+           {% endfor %}
+      	{{ form.submit(class="btn-primary") }} 
+      </form>
+     </div>
+    </main>
+
+{% endblock %}

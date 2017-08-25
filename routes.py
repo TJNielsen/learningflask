@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, session, redirect, url_for
 from models import db, User
-from forms import SignupForm, LoginForm, RT_ET_Form
+from forms import SignupForm, LoginForm, RT_ET_Form, testform
 
 
 app = Flask(__name__)
@@ -37,7 +37,7 @@ def signup():
 
 @app.route("/home", methods=['GET', 'POST'])
 def home():
-	form = RT_ET_Form()
+	form = testform()
 	if request.method == "POST":
 		if form.validate() == False:
 			return render_template("home.html", form=form)

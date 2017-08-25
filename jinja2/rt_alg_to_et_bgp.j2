@@ -1,0 +1,134 @@
+interface Loopback1001
+ description OPS({{ hostname }}-lo1001)::edge-send-label-ipv4::ADBE
+ ip address {{ ipv4_send_label_IP_lo1001 }} 255.255.255.255
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp
+ ip router isis transport
+
+interface Loopback1002
+ description OPS({{ hostname }}-lo1002)::edge-vpnv4::ADBE
+ ip address {{ vpnv4_IP_loopback1002 }} 255.255.255.255
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp
+
+ip community-list expanded RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_L010_IMPORT permit :2010_
+ip community-list expanded RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_L090_IMPORT permit :2090_
+ip community-list expanded RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_L100_IMPORT permit :2100_
+ip community-list expanded RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_L110_IMPORT permit :2110_
+ip community-list expanded RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_M000_IMPORT permit :2200_
+ip community-list expanded RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_M027_IMPORT permit :2227_
+ip community-list expanded RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_M037_IMPORT permit :2237_
+ip community-list expanded RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_M199_IMPORT permit :2399_
+ip community-list expanded RTR:TE-I-EBGP-VPNV4-TE:RTR_IMPORT_REMOVE permit :(2[0-4][0-9][0-9])_
+
+ip community-list expanded ET:TX-I-EBGP-VPNV4-DC:EDGE_EXPORT permit 64512:[0-9]*[13][0-9]*_.*:[5-6](220|225)_
+
+ip prefix-list ET:TX-I-EBGP-IPV4-DC:EDGE_EXPORT seq 100 permit {{ vpnv4_IP_loopback1002 }}/32
+ip prefix-list ET:TX-I-EBGP-IPV4-DC:EDGE_EXPORT seq 1000 deny 0.0.0.0/0 le 32
+
+route-map ET:TX-I-EBGP-IPV4-DC:EDGE_EXPORT permit 100
+ description PE Loopback Export =~= EDGE
+ description DEF | AAAAAAAA   | Definition
+ match ip address prefix-list ET:TX-I-EBGP-IPV4-DC:EDGE_EXPORT
+ set metric {{ IPv4_MED_12_or_22 }}
+ set mpls-label
+
+route-map ET:TX-I-EBGP-VPNV4-DC:EDGE_EXPORT permit 100
+ description signal to ET to pref up routes from this site_{{ Site_Prefix }} toward the backbone
+ match community ET:TX-I-EBGP-VPNV4-DC:EDGE_EXPORT
+ set community 65000:2110 65000:22{{ VPNv4_MED_27_or_37 }} additive
+
+route-map RTR:TE-I-EBGP-VPNV4-TE:RTR_IMPORT permit 2010
+ match community RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_L010_IMPORT
+ continue 2200
+ set local-preference 10
+route-map RTR:TE-I-EBGP-VPNV4-TE:RTR_IMPORT permit 2090
+ match community RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_L090_IMPORT
+ continue 2200
+ set local-preference 90
+route-map RTR:TE-I-EBGP-VPNV4-TE:RTR_IMPORT permit 2100
+ match community RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_L100_IMPORT
+ continue 2200
+ set local-preference 100
+route-map RTR:TE-I-EBGP-VPNV4-TE:RTR_IMPORT permit 2110
+ match community RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_L110_IMPORT
+ continue 2200
+ set local-preference 110
+route-map RTR:TE-I-EBGP-VPNV4-TE:RTR_IMPORT permit 2200
+ match community RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_M000_IMPORT
+ continue 65515
+ set metric 0
+route-map RTR:TE-I-EBGP-VPNV4-TE:RTR_IMPORT permit 2227
+ match community RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_M027_IMPORT
+ continue 65515
+ set metric 27
+route-map RTR:TE-I-EBGP-VPNV4-TE:RTR_IMPORT permit 2237
+ match community RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_M037_IMPORT
+ continue 65515
+ set metric 37
+route-map RTR:TE-I-EBGP-VPNV4-TE:RTR_IMPORT permit 2399
+ match community RTR:TE-I-EBGP-VPNV4-TE:RTR_TE_M199_IMPORT
+ continue 65515
+ set metric 199
+route-map RTR:TE-I-EBGP-VPNV4-TE:RTR_IMPORT permit 65515
+ set comm-list RTR:TE-I-EBGP-VPNV4-TE:RTR_IMPORT_REMOVE delete
+route-map RTR:TE-I-EBGP-VPNV4-TE:RTR_IMPORT deny 65525
+
+route-map IPV4-LOOP:RCH-GLB:DC_DRT_ORIGIN permit 100
+ description Infrastructure Loopback Origin Assignment
+ description DEF | AAAAAAAA   | Definition
+ description VRF | 65000:9000 | Global
+ description NET | 65000:1080 | IPv4 Loopback
+ description LOC | {{ LOC_Community_based_on_region }} | {{ Location_Name }}
+ description RCH | 64512:1    | Global
+ set origin igp
+ set community 64512:1 65000:1080 65000:9000 {{ LOC_Community_based_on_region }}
+
+router bgp {{ BGP_Local_AS }}
+ 
+ template peer-policy ET:TX-I-EBGP-IPV4-DC:EDGE_PEER
+  route-map ET:TX-I-EBGP-IPV4-DC:EDGE_EXPORT out
+  send-community
+  send-label
+ exit-peer-policy
+ !
+ template peer-policy ET:TX-I-EBGP-VPNV4-DC:EDGE_PEER
+  route-map RTR:TE-I-EBGP-VPNV4-TE:RTR_IMPORT in
+  route-map ET:TX-I-EBGP-VPNV4-DC:EDGE_EXPORT out
+  send-community both
+ exit-peer-policy
+ !
+
+ template peer-session ET:TX-I-EBGP-IPV4-DC:EDGE_PEER
+  remote-as 65111
+  transport path-mtu-discovery
+  ebgp-multihop 255
+  update-source Loopback1001
+  version 4
+ exit-peer-session
+ !
+ template peer-session ET:TX-I-EBGP-VPNV4-DC:EDGE_PEER
+  remote-as 65111
+  transport path-mtu-discovery
+  ebgp-multihop 255
+  update-source Loopback1002
+  version 4
+ exit-peer-session
+ !
+ neighbor {{ Neighbor_VPNv4_Address_lo1002 }} inherit peer-session ET:TX-I-EBGP-VPNV4-DC:EDGE_PEER
+ neighbor {{ Neighbor_VPNv4_Address_lo1002 }} description ET:TX-I-EBGP-VPNV4-DC:EDGE_PEER {{ Neighbor_hostname }} Lo1002
+ neighbor {{ Neighbor_IPv4_Address_lo1001 }} inherit peer-session ET:TX-I-EBGP-IPV4-DC:EDGE_PEER
+ neighbor {{ Neighbor_IPv4_Address_lo1001 }} description ET:TX-I-IBGP-IPV4-DC:EDGE_PEER {{ Neighbor_hostname }} Lo1001
+
+address-family ipv4
+   neighbor {{ Neighbor_VPNv4_Address_lo1002 }} activate
+   neighbor {{ Neighbor_VPNv4_Address_lo1002 }} inherit peer-policy ET:TX-I-EBGP-IPV4-DC:EDGE_PEER
+   network {{ vpnv4_IP_loopback1002 }} mask 255.255.255.255 route-map IPV4-LOOP:RCH-GLB:DC_DRT_ORIGIN
+
+ address-family vpnv4
+   neighbor {{ Neighbor_VPNv4_Address_lo1002 }} activate
+   neighbor {{ Neighbor_VPNv4_Address_lo1002 }} send-community extended
+   neighbor {{ Neighbor_VPNv4_Address_lo1002 }} inherit peer-policy ET:TX-I-EBGP-VPNV4-DC:EDGE_PEER
+

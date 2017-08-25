@@ -1,0 +1,24 @@
+router bgp {{ BGP_Local_AS }}
+ 
+ template peer-policy ET:TX-I-EBGP-IPV4-DC:EDGE_PEER
+  route-map ET:TX-I-EBGP-IPV4-DC:EDGE_EXPORT out
+  send-community
+  send-label
+ exit-peer-policy
+ !
+ template peer-policy ET:TX-I-EBGP-VPNV4-DC:EDGE_PEER
+  route-map RTR:TE-I-EBGP-VPNV4-TE:RTR_IMPORT in
+  route-map ET:TX-I-EBGP-VPNV4-DC:EDGE_EXPORT out
+  send-community both
+ exit-peer-policy
+ !
+
+ template peer-session ET:TX-I-EBGP-IPV4-DC:EDGE_PEER
+  remote-as 65111
+  transport path-mtu-discovery
+  ebgp-multihop 255
+  update-source Loopback1001
+  version 4
+ exit-peer-session
+ !
+ {{ stuff }}
